@@ -188,36 +188,6 @@ def wgs84togcj02(data, lon_index, lat_index):#data:数据list不header,lon_index
         data_output[i][lat_index] = mglat
     return(data_output)
 
-#火星坐标系转WGS84坐标系
-def gcj02towgs84(data, lon_index, lat_index):
-    """
-    GCJ02(火星坐标系)转GPS84
-    :param lng:火星坐标系的经度
-    :param lat:火星坐标系纬度
-    :return:
-    """
-    data_output = copy.deepcopy(data)  # 深拷贝
-    for i in range(len(data)):
-        lng = float(data[i][lon_index])
-        lat = float(data[i][lat_index])
-        # print(data[i][lon_index], lng)
-        if out_of_china(lng, lat):
-            print('第%d行数据(%.4f,%.4f)超出中国范围' % (i, lng, lat))
-            return(lng, lat)
-        dlat = transformlat(lng - 105.0, lat - 35.0)
-        dlng = transformlng(lng - 105.0, lat - 35.0)
-        radlat = lat / 180.0 * pi
-        magic = math.sin(radlat)
-        magic = 1 - ee * magic * magic
-        sqrtmagic = math.sqrt(magic)
-        dlat = (dlat * 180.0) / ((a * (1 - ee)) / (magic * sqrtmagic) * pi)
-        dlng = (dlng * 180.0) / (a / sqrtmagic * math.cos(radlat) * pi)
-        mglat = lat + dlat
-        mglng = lng + dlng
-        data_output[i][lon_index] = lng * 2 - mglng
-        data_output[i][lat_index] = lat * 2 - mglat
-    return(data_output)
-
 def savecsv(savedata_list, savename, savepath):  #保存list到csv 参数：保存数据（list），保存文件名（str）,保存路径（str）
     path = savepath
     name = savename
@@ -249,5 +219,66 @@ def input_2(str,default_str):
         input_val = default_str
         print(str,default_str)
     return(input_val)
+
+#读取GPRMC、GPGGA数据
+def gp_read(name, path):  # name:str文件名，path：文件路径
+    data_list = readtxt(name, path, ',')
+    str1 = '$GPRMC'
+    str2 = '$GPGGA'
+    data_output1 = []  #gprmc
+    data_output2 = []  #gpgga
+    for line in data_list:
+        if line[0] == str1:
+            templine = []
+            templine.append(line[0])  #GPRMC
+            templine.append(line[1])  #UTC时间
+            templine.append(line[2])  #定位状态
+            #纬度
+            wdd = int(float(line[3])/100)  #度
+            wff = int(float(line[3]) - wdd*100)  #分
+            wmm = (float(line[3]) - wdd*100 - wff) * 60  #秒
+            templine.append(wdd + wff/60 + wmm/3600)  #纬度
+            # 经度
+            jdd = int(float(line[5]) / 100)  # 度
+            jff = int(float(line[5]) - jdd * 100)  # 分
+            jmm = (float(line[5]) - jdd * 100 - jff) * 60  # 秒
+            templine.append(jdd + jff / 60 + jmm / 3600)  # 经度
+
+            templine.append(line[7]) #地面速率
+            templine.append(line[8]) #地面航向
+            templine.append(line[9]) #UTC日期
+            data_output1.append(templine)
+
+        if line[0] == str2:
+            templine1 = []
+            templine1.append(line[0])  #GPRMC
+            templine1.append(line[1])  #UTC时间
+            #纬度
+            wdd = int(float(line[2])/100)  #度
+            wff = int(float(line[2]) - wdd*100)  #分
+            wmm = (float(line[2]) - wdd*100 - wff) * 60  #秒
+            templine1.append(wdd + wff/60 + wmm/3600)  #纬度
+            # 经度
+            jdd = int(float(line[4]) / 100)  # 度
+            jff = int(float(line[4]) - jdd * 100)  # 分
+            jmm = (float(line[4]) - jdd * 100 - jff) * 60  # 秒
+            templine1.append(jdd + jff / 60 + jmm / 3600)  # 经度
+            templine1.append(line[6])  #GPS状态
+            templine1.append(line[7]) #使用卫星数
+            templine1.append(line[8]) #水平精度因子
+            templine1.append(line[9]) #海拔高度
+            templine1.append(line[11]) #大地水准面高度异常差值
+            data_output2.append(templine1)
+
+    gprmc_index = ['Class' ,'utc' ,'pos status' ,'lat' ,'lon' ,'speed' ,'track true' ,'date']
+    gpgga_index = ['Class' ,'utc' ,'lat' ,'lon' ,'quality' ,'sats' ,'hdop' ,'alt' ,'undulation']
+    data_output1.insert(0, gprmc_index)
+    data_output2.insert(0, gpgga_index)
+    return((data_output1,data_output2)) #gprmc,gpgga
+
+
+
+
+
 
 
